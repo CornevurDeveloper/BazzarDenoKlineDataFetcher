@@ -1,0 +1,155 @@
+// core/config.ts
+
+/**
+ * Центральный конфигурационный файл для всех лимитов запросов.
+ * * "SAVE_LIMIT" (400): Количество свечей, которое всегда сохраняется в кэш.
+ * "FETCH_LIMIT" (401): SAVE_LIMIT + 1 (для компенсации обрезки API).
+ * "BASE_LIMIT" (801): (SAVE_LIMIT * 2) + 1 (для комбинации 2:1 и компенсации).
+ */
+export const CONFIG = {
+  PROJECT_NAME: "BizzarDenoKlineDataFetcher",
+  /**
+   * Количество свечей, сохраняемое в кэш.
+   */
+  SAVE_LIMIT: 400,
+
+  /**
+   * --- KLINE (Свечи) ---
+   * Лимиты для fetchKlineData
+   */
+  KLINE: {
+    /**
+     * Прямой запрос 1h (400 + 1).
+     * Используется в: job-1h, job-4h, job-8h, job-12h, job-1d.
+     */
+    h1: 601,
+
+    /**
+     * Прямой запрос 4h (400 + 1).
+     * Используется в: job-4h.
+     */
+    h4_DIRECT: 401,
+
+    /**
+     * Базовый сет 4h (800 + 1) для комбинации в 8h.
+     * Используется в: job-8h, job-12h, job-1d.
+     */
+    h4_BASE: 801,
+
+    /**
+     * Прямой запрос 12h (400 + 1).
+     * Используется в: job-12h (ОПТИМИЗАЦИЯ).
+     */
+    h12_DIRECT: 401,
+
+    /**
+     * Базовый сет 12h (800 + 1) для комбинации в 1D.
+     * Используется в: job-1d.
+     */
+    h12_BASE: 801,
+  },
+
+  /**
+   * --- OPEN INTEREST (OI) ---
+   */
+  OI: {
+    /**
+     * OI 1h (720) для обогащения всех таймфреймов.
+     */
+    h1_GLOBAL: 720,
+  },
+
+  /**
+   * --- FUNDING RATE (FR) ---
+   */
+  FR: {
+    /**
+     * FR нужен для обогащения СВЕЖИХ 4h свечей (801).
+     * Увеличено до 801, чтобы покрыть 2h и 1h интервалы (для 2h: 800/4 = 200 свечей заполнения 4h свечей).
+     * (Используется в job-4h, job-8h, job-12h, job-1d).
+     */
+    h4_RECENT: 801,
+  },
+
+  /**
+   * --- THROTTLING (Ограничение скорости) ---
+   * Константы для контроля лимитов запросов Binance (2400 req/min).
+   * 10 запросов @ 400ms задержки = ~1500 req/min (безопасно).
+   */
+  THROTTLING: {
+    /**
+     * Максимальное количество параллельных запросов в одном батче.
+     */
+    BATCH_SIZE: 2,
+
+    /**
+     * Задержки в миллисекундах между батчами (для SmartQueue).
+     */
+    DELAY: {
+      /**
+       * Binance: 1500ms (Ultra-Safe Mode).
+       * ~80 req/min * 5 weight = 400 weight/min (Limit 2400).
+       */
+      BINANCE: 700,
+
+      /**
+       * Bybit: 200ms (Быстрее, так как лимиты мягче).
+       */
+      BYBIT: 200,
+    },
+  },
+
+  /**
+   * --- DELAYS ---
+   * Задержки между отдельными задачами.
+   */
+  DELAYS: {
+    /**
+     * Задержка между fetch операциями в job-4h и job-8h (мс).
+     * Используется между: OI → FR → Klines.
+     */
+    DELAY_BTW_TASKS: 5000,
+  },
+
+  /**
+   * --- MONGODB ---
+   */
+  /**
+   * --- MONGODB ---
+   */
+  get MONGO() {
+    return {
+      /**
+       * URI connection string (e.g. mongodb+srv://...)
+       * Default: process.env.MONGODB_URI or MONGO_DB_URL
+       */
+      URI: Deno.env.get("MONGODB_URI") || Deno.env.get("MONGO_DB_URL") || "",
+
+      /**
+       * Database name
+       */
+      DB_NAME: Deno.env.get("MONGODB_DB_NAME") || "market_vibe",
+
+      /**
+       * Collection name for cache
+       */
+      COLLECTION: Deno.env.get("MONGODB_COLLECTION") || "cache",
+    };
+  },
+
+  /**
+   * --- STORAGE DRIVER ---
+   * Выбор хранилища для кэша.
+   * "redis": Upstash Redis (персистентный, со сжатием)
+   * "memory": NodeCache (в памяти, сбрасывается при перезапуске)
+   * "mongo": MongoDB (персистентный, JSON документы)
+   */
+  get STORAGE() {
+    return {
+      DRIVER: (Deno.env.get("STORAGE_DRIVER") || "memory") as
+        | "redis"
+        | "memory"
+        | "mongo",
+    };
+  },
+};
