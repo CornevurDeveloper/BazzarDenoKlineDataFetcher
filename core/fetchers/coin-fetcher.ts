@@ -27,7 +27,13 @@ export async function fetchCoins() {
 
     // Типизируем ответ от 'node-fetch@2'
     const data: any = await response.json();
-    const coins = data.symbols;
+    const rawSymbols = data.symbols;
+
+    // Normalize exchange names to lowercase
+    const coins = rawSymbols.map((coin: any) => ({
+      ...coin,
+      exchanges: coin.exchanges?.map((ex: string) => ex.toLowerCase()) || [],
+    }));
 
     return coins;
   } catch (error) {
