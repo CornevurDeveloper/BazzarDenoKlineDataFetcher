@@ -74,6 +74,7 @@ async function fetchCoinOI(
 
     const allData: any[] = [];
     let cursor = "";
+    let page = 1;
 
     // Цикл пагинации
     while (true) {
@@ -82,35 +83,45 @@ async function fetchCoinOI(
         requestUrl += `&cursor=${cursor}`;
       }
 
-      const response = await fetch(requestUrl, {
-        headers: {
-          "User-Agent": randomUserAgent,
-          Accept: "application/json",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-        signal: AbortSignal.timeout(10000), // 10 seconds timeout
-      });
+      logger.info(`[BYBIT DEBUG] ${symbol} request page ${page}...`, DColors.cyan);
 
-      if (!response.ok)
-        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      try {
+        const response = await fetch(requestUrl, {
+          headers: {
+            "User-Agent": randomUserAgent,
+            Accept: "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+          signal: AbortSignal.timeout(10000), // 10 seconds timeout
+        });
 
-      const rawData: any = await response.json();
-      if (!rawData?.result?.list || !Array.isArray(rawData.result.list)) {
-        throw new Error(`Invalid Bybit response for ${symbol}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const rawData: any = await response.json();
+        
+        if (!rawData?.result?.list || !Array.isArray(rawData.result.list)) {
+          throw new Error(`Invalid Bybit response for ${symbol}`);
+        }
+
+        const list = rawData.result.list;
+        logger.info(`[BYBIT DEBUG] ${symbol} page ${page} returned ${list.length} items. cursor: ${cursor ? "yes" : "no"}`, DColors.green);
+        
+        if (list.length === 0) break;
+
+        allData.push(...list);
+        if (allData.length >= limit) break;
+
+        cursor = rawData.result.nextPageCursor;
+        if (!cursor) break;
+
+        page++;
+        await sleep(100);
+      } catch (e: any) {
+         logger.info(`[BYBIT DEBUG] Error fetching ${symbol} on page ${page}: ${e.message}`, DColors.red);
+         throw e;
       }
-
-      const list = rawData.result.list;
-      if (list.length === 0) break;
-
-      allData.push(...list);
-      if (allData.length >= limit) break;
-
-      cursor = rawData.result.nextPageCursor;
-      if (!cursor) break;
-
-      // --- ВАЖНОЕ ИСПРАВЛЕНИЕ: Задержка внутри пагинации ---
-      // Чтобы не спамить API при скачивании истории одной монеты
-      await sleep(100);
     }
 
     if (allData.length === 0) throw new Error(`No data for ${symbol}`);
