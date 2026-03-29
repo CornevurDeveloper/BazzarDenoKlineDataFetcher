@@ -88,6 +88,7 @@ async function fetchCoinOI(
           Accept: "application/json",
           "Accept-Language": "en-US,en;q=0.9",
         },
+        signal: AbortSignal.timeout(10000), // 10 seconds timeout
       });
 
       if (!response.ok)

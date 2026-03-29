@@ -47,6 +47,7 @@ async function fetchCoinOI(
         "User-Agent": randomUserAgent,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(10000), // 10 seconds timeout
     });
 
     if (!response.ok) {

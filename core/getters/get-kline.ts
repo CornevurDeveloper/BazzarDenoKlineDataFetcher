@@ -102,6 +102,7 @@ async function fetchBinanceKlineData(
       "User-Agent": randomUserAgent,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(10000), // 10 seconds timeout
   });
   if (!response.ok)
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
@@ -156,6 +157,7 @@ async function fetchBybitKlineData(
       "User-Agent": randomUserAgent,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(10000), // 10 seconds timeout
   });
   if (!response.ok)
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);

@@ -100,6 +100,7 @@ async function fetchBinanceFundingRate(
         "User-Agent": randomUserAgent,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(10000), // 10 seconds timeout
     });
 
     if (!response.ok) {
@@ -180,6 +181,7 @@ async function fetchBybitFundingRate(coin: Coin, limit: number): Promise<any> {
           "User-Agent": randomUserAgent,
           Accept: "application/json",
         },
+        signal: AbortSignal.timeout(10000), // 10 seconds timeout
       });
 
       if (!response.ok) {
