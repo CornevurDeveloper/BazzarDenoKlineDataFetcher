@@ -108,26 +108,49 @@ app.get("/api/cache/:tf", checkAuth, async (req: Request, res: Response) => {
 });
 
 // --- ЭНДПОИНТ 2: Запуск работы (Этот ты будешь дергать из Deno Cron) ---
-app.post("/api/jobs/run/:jobName", checkAuth, (req: Request, res: Response) => {
+app.post("/api/jobs/run/:jobName", checkAuth, async (req: Request, res: Response) => {
   try {
     const { jobName } = req.params;
     if (jobName && jobName in jobs) {
       const jobToRun = jobs[jobName];
-      jobToRun(); // Запускаем АСИНХРОННО
-
-      return res.status(202).json({
-        success: true,
-        message: `Job '${jobName}' started successfully.`,
+      
+      // ВАЖНО ДЛЯ DENO DEPLOY:
+      // Нельзя возвращать ответ (res.json) ДО завершения работы. 
+      // Если вернуть ответ сразу, Deno Deploy усыпит (suspend) процесс,
+      // и все фоновые промисы и fetch остановятся ("встанут колом").
+      
+      // Чтобы Deno proxy не отвалился по таймауту, делаем Streaming ответ.
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Transfer-Encoding": "chunked",
+        "Connection": "keep-alive"
       });
+      res.write(`{"status":"running","job":"${jobName}","progress":"`);
+      
+      // Раз в 10 секунд отправляем кусок, чтобы соединение не закрылось
+      const interval = setInterval(() => res.write("."), 10000);
+
+      try {
+        await jobToRun(); // ЖДЁМ выполнения всей работы!
+        res.write(`","success":true}`);
+      } catch (err: any) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        res.write(`","success":false,"error":${JSON.stringify(errMsg)}}`);
+      } finally {
+        clearInterval(interval);
+        res.end(); // Завершаем соединение только когда всё скачано
+      }
     } else {
-      return res
-        .status(404)
-        .json({ error: `Job '${jobName || "undefined"}' not found.` });
+      if (!res.headersSent) {
+        return res.status(404).json({ error: `Job '${jobName || "undefined"}' not found.` });
+      }
     }
   } catch (e: any) {
     const errorMsg = e instanceof Error ? e.message : String(e);
     logger.error(`[API] Error running job: ${errorMsg}`, e);
-    return res.status(500).json({ error: errorMsg });
+    if (!res.headersSent) {
+      return res.status(500).json({ error: errorMsg });
+    }
   }
 });
 
