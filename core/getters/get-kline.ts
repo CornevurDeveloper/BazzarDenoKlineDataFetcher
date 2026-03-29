@@ -236,17 +236,32 @@ export async function fetchKlines(
   _options?: any // Игнорируем опции
 ): Promise<FetcherResult> {
   const label = `${exchange.toUpperCase()} KLINE`;
+  const total = coins.length;
 
   logger.info(
-    `[${label}] Adding ${coins.length} tasks to global queues...`,
+    `[${label}] ⏳ Запуск: ${total} монет [${timeframe}, lim=${limit}]`,
     DColors.cyan
   );
 
+  let done = 0;
+
   const tasks = coins.map((coin) => {
+    const task = async () => {
+      const result = await fetchKlineData(coin.symbol, exchange, timeframe, limit);
+      done++;
+      if (done % 10 === 0 || done === total) {
+        logger.info(
+          `[${label}] 📥 Прогресс: ${done}/${total} монет`,
+          DColors.cyan
+        );
+      }
+      return result;
+    };
+
     if (exchange === "binance") {
-      return binanceQueue.add(() => fetchKlineData(coin.symbol, exchange, timeframe, limit));
+      return binanceQueue.add(task);
     } else {
-      return bybitQueue.add(() => fetchKlineData(coin.symbol, exchange, timeframe, limit));
+      return bybitQueue.add(task);
     }
   });
 
@@ -280,7 +295,7 @@ export async function fetchKlines(
   }));
 
   logger.info(
-    `[${label}] ✓ Success: ${successful.length} | ✗ Failed: ${failed.length}`,
+    `[${label}] ✅ Готово: ${successful.length}/${total} монет | ✗ Ошибок: ${failed.length}`,
     successful.length > 0 ? DColors.green : DColors.yellow
   );
 

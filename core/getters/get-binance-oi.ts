@@ -83,13 +83,26 @@ export async function fetchBinanceOI(
   limit: number,
   _options?: any
 ): Promise<FetcherResult> {
+  const total = coins.length;
   logger.info(
-    `[BINANCE OI] Добавление ${coins.length} задач в глобальную очередь...`,
+    `[BINANCE OI] ⏳ Запуск: ${total} монет [${timeframe}, lim=${limit}]`,
     DColors.yellow
   );
 
+  let done = 0;
+
   const tasks = coins.map((coin) =>
-    binanceQueue.add(() => fetchCoinOI(coin.symbol, timeframe, limit))
+    binanceQueue.add(async () => {
+      const result = await fetchCoinOI(coin.symbol, timeframe, limit);
+      done++;
+      if (done % 10 === 0 || done === total) {
+        logger.info(
+          `[BINANCE OI] 📥 Прогресс: ${done}/${total} монет`,
+          DColors.cyan
+        );
+      }
+      return result;
+    })
   );
 
   const results = await Promise.all(tasks);
@@ -116,7 +129,7 @@ export async function fetchBinanceOI(
   }));
 
   logger.info(
-    `[BINANCE OI] ✓ Успешно: ${successful.length} | ✗ Ошибок: ${failed.length}`,
+    `[BINANCE OI] ✅ Готово: ${successful.length}/${total} монет | ✗ Ошибок: ${failed.length}`,
     successful.length > 0 ? DColors.green : DColors.yellow
   );
 

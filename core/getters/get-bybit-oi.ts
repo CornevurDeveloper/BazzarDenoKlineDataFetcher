@@ -150,13 +150,26 @@ export async function fetchBybitOI(
   limit: number,
   _options?: any // Параметры из Job игнорируются ради приоритета CONFIG
 ): Promise<FetcherResult> {
+  const total = coins.length;
   logger.info(
-    `[BYBIT OI] Добавление ${coins.length} задач в глобальную очередь...`,
+    `[BYBIT OI] ⏳ Запуск: ${total} монет [${timeframe}, lim=${limit}]`,
     DColors.yellow
   );
 
+  let done = 0;
+
   const tasks = coins.map((coin) =>
-    bybitQueue.add(() => fetchCoinOI(coin.symbol, timeframe, limit))
+    bybitQueue.add(async () => {
+      const result = await fetchCoinOI(coin.symbol, timeframe, limit);
+      done++;
+      if (done % 10 === 0 || done === total) {
+        logger.info(
+          `[BYBIT OI] 📥 Прогресс: ${done}/${total} монет`,
+          DColors.cyan
+        );
+      }
+      return result;
+    })
   );
 
   const results = await Promise.all(tasks);
@@ -183,7 +196,7 @@ export async function fetchBybitOI(
   }));
 
   logger.info(
-    `[BYBIT OI] ✓ Успешно: ${successful.length} | ✗ Ошибок: ${failed.length}`,
+    `[BYBIT OI] ✅ Готово: ${successful.length}/${total} монет | ✗ Ошибок: ${failed.length}`,
     successful.length > 0 ? DColors.green : DColors.yellow
   );
 

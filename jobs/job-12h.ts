@@ -20,7 +20,7 @@ import { CONFIG } from "../config.ts";
  */
 export async function run12hJob(): Promise<JobResult> {
   const startTime = Date.now();
-  const timeframe: TF = "12h" as TF;
+  const timeframe: TF = "12h";
   const errors: string[] = [];
 
   const coins = await fetchCoins();
